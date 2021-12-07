@@ -1,5 +1,6 @@
 use std::fs::File;
 use std::io::{BufReader, BufRead};
+use std::collections::HashMap;
 
 fn load_input(filename: &str) -> impl Iterator<Item = String> {
     let file = File::open(filename).unwrap();
@@ -9,43 +10,59 @@ fn load_input(filename: &str) -> impl Iterator<Item = String> {
 }
 
 struct Population {
-    population: Vec<u8>,
+    population: HashMap<u8, u64>,
     current_time: u64,
+}
+
+fn sum_to_hashmap(hashmap: &mut HashMap<u8, u64>, key: u8, to_sum: u64) {
+    let new_count = match hashmap.get(&key) {
+        Some(x) => x + to_sum,
+        None => to_sum,
+    };
+    hashmap.insert(key, new_count);
 }
 
 impl Population {
     fn new(initial_state: Vec<u8>) -> Population {
-        let population = initial_state;
+        let mut population: HashMap<u8, u64> = HashMap::new();
+        for fish in initial_state {
+            let new_count = match population.get(&fish) {
+                Some(x) => x + 1,
+                None => 1,
+            };
+            population.insert(fish, new_count);            
+        }
+
         return Population { population: population, current_time: 0 };
     }
 
     fn print(&self) {
-        print!("After {} days -> ({}): ", self.current_time, self.population.len());
-        for fish in self.population.iter() {
-            print!("{},", fish);
+        print!("After {} days -> ({}): ", self.current_time, self.count());
+        for (days, count) in self.population.iter() {
+            print!("{}x{},", days, count);
         }
         println!("");
     }
-
+    
     fn tick(&mut self) {
         self.current_time = self.current_time + 1;
 
-        for i in 0..self.population.len() {
-            if self.population[i] > 0 {
-                self.population[i] = self.population[i] - 1;
+        let mut new_population: HashMap<u8, u64> = HashMap::new();
+        for (days, count) in self.population.iter() {
+            if days == &0 {
+                // Spawn
+                sum_to_hashmap(&mut new_population, 8, *count);
+                // Reset counter
+                sum_to_hashmap(&mut new_population, 6, *count);
             } else {
-                self.spawn(i);
+                sum_to_hashmap(&mut new_population, days-1, *count);
             }
         }
+        self.population = new_population;
     }
 
-    fn spawn(&mut self, from: usize) {
-        self.population[from] = 6;
-        self.population.push(8);
-    }
-
-    fn count(&self) -> usize{
-        return self.population.len();
+    fn count(&self) -> u64 {
+        return self.population.values().sum();
     }
 }
 
@@ -73,23 +90,35 @@ fn simulate(population: &mut Population, max_day: u32, verbose: bool) {
     }
 
     if verbose {
-        println!("After {} days we have {} fish", max_day, population.population.len());
+        println!("After {} days we have {} fish", max_day, population.count());
     }
 }
 
-fn part1() -> usize {
-    let max_day = 80;
+fn example() -> u64 {
+    let initial_state: Vec<u8> = vec![3,4,3,1,2];
+    let mut population = Population::new(initial_state);
 
-    let mut population = population_from_input("input");
-
-    simulate(&mut population, max_day, true);
+    simulate(&mut population, 18, true);
     
     return population.count();
 }
 
+fn part1() -> u64 {
+    let max_day = 80;
+    let mut population = population_from_input("input");
+    simulate(&mut population, max_day, false);
+    return population.count();
+}
+
+fn part2() -> u64 {
+    let max_day = 256;
+    let mut population = population_from_input("input");
+    simulate(&mut population, max_day, false);
+    return population.count();
+}
+
 fn main() {
-    //let initial_state: Vec<u8> = vec![3,4,3,1,2];
-    //let mut population = Population::new(initial_state);
-    //
+    assert_eq!(example(), 26);
     assert_eq!(part1(), 390923);
+    println!("Part 2: {}", part2());
 }
